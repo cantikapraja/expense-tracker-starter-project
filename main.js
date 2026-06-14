@@ -21,6 +21,7 @@ function generateId() {
 // TODO [Basic] Ambil elemen kontainer incomeList dan expenseList dari DOM
 const incomeList = document.getElementById("incomeList");
 const expenseList = document.getElementById("expenseList");
+console.log(incomeList, expenseList);
 
 /**
  * TODO [Basic]:
@@ -46,7 +47,7 @@ function renderTransactions() {
 
     const amount = document.createElement("h3");
     amount.dataset.testid = "transactionItemAmount";
-    amount.textContent = transaction.amount;
+    amount.textContent = `Rp ${transaction.amount}`;
 
     card.appendChild(amount);
 
@@ -58,7 +59,8 @@ function renderTransactions() {
 
     const type = document.createElement("h3");
     type.dataset.testid = "transactionItemType";
-    type.textContent = transaction.type;
+    type.textContent =
+      transaction.type === "income" ? "Pemasukan" : "Pengeluaran";
 
     card.appendChild(type);
 
@@ -74,11 +76,13 @@ function renderTransactions() {
 
     card.appendChild(deleteButton);
 
+    deleteButton.addEventListener("click", () => {
+      deleteTransaction(transaction.id);
+    });
+
     if (transaction.type === "income") {
       incomeList.appendChild(card);
-    }
-
-    if (transaction.type === "expense") {
+    } else {
       expenseList.appendChild(card);
     }
   }
@@ -95,25 +99,35 @@ transactionForm.addEventListener("submit", (e) => {
   const date = document.getElementById("transactionFormDateInput").value;
   const type = document.getElementById("transactionFormTypeSelect").value;
 
+  /**
+   * TODO [Skilled]:
+   * Tambahkan validasi input sebelum menyimpan data:
+   *  - Tampilkan alert() dan hentikan proses jika judul kosong
+   *  - Tampilkan alert() dan hentikan proses jika nominal kurang dari 1
+   */
+  if (title.trim() === "") {
+    alert("Judul tidak boleh kosong");
+    return;
+  }
+
+  if (Number(amount) < 1) {
+    alert("Nominal harus lebih dari 0");
+    return;
+  }
+
   const newTransaction = {
     id: generateId(),
     title,
-    amount: parseInt(amount),
+    amount: Number(amount),
     date,
     type,
   };
 
   transactions.push(newTransaction);
-
+  saveToLocalStorage();
   renderTransactions();
+  updateDashboard();
 });
-
-/**
- * TODO [Skilled]:
- * Tambahkan validasi input sebelum menyimpan data:
- *  - Tampilkan alert() dan hentikan proses jika judul kosong
- *  - Tampilkan alert() dan hentikan proses jika nominal kurang dari 1
- */
 
 /**
  * TODO [Advanced]:
@@ -121,6 +135,35 @@ transactionForm.addEventListener("submit", (e) => {
  *  - Hitung total pemasukan, total pengeluaran, dan saldo (pemasukan - pengeluaran)
  *  - Tampilkan hasilnya ke elemen yang sesuai di HTML
  */
+
+const balanceElement = document.querySelector(
+  ".tracker-summary__balance-amount",
+);
+const incomeElement = document.querySelector(
+  ".tracker-summary__stat-amount--income",
+);
+const expenseElement = document.querySelector(
+  ".tracker-summary__stat-amount--expense",
+);
+
+function updateDashboard() {
+  let totalIncome = 0;
+  let totalExpense = 0;
+
+  for (const transaction of transactions) {
+    if (transaction.type === "income") {
+      totalIncome += transaction.amount;
+    } else {
+      totalExpense += transaction.amount;
+    }
+  }
+
+  const balance = totalIncome - totalExpense;
+
+  balanceElement.textContent = `Rp ${balance}`;
+  incomeElement.textContent = `Rp ${totalIncome}`;
+  expenseElement.textContent = `Rp ${totalExpense}`;
+}
 
 /**
  * ========================================================
@@ -132,6 +175,25 @@ transactionForm.addEventListener("submit", (e) => {
  * Data transaksi disimpan ke localStorage menggunakan JSON.stringify(), dan dimuat kembali saat halaman dibuka menggunakan JSON.parse().
  *  - Tombol "Hapus" berfungsi: transaksi yang dihapus langsung hilang dari layar dan dari localStorage.
  */
+function saveToLocalStorage() {
+  localStorage.setItem("transactions", JSON.stringify(transactions));
+}
+
+function loadFromLocalStorage() {
+  const data = localStorage.getItem("transactions");
+
+  if (data) {
+    transactions = JSON.parse(data);
+  }
+}
+
+function deleteTransaction(id) {
+  transactions = transactions.filter((t) => t.id !== id);
+
+  saveToLocalStorage();
+  renderTransactions();
+  updateDashboard();
+}
 
 /**
  * TODO [Skilled]:
@@ -171,3 +233,6 @@ transactionForm.addEventListener("submit", (e) => {
  * Pastikan fitur pencarian berjalan dengan baik di semua kondisi:
  *  - Saat kolom pencarian dikosongkan, tampilkan kembali seluruh daftar transaksi
  */
+loadFromLocalStorage();
+renderTransactions();
+updateDashboard();
