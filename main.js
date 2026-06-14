@@ -8,10 +8,15 @@
 // TODO [Basic] Buat variabel array untuk menyimpan semua data transaksi, contoh: let transactions = []
 let transactions = [];
 let editId = null;
+let currentKeyword = "";
 
 // TODO [Basic] Buat fungsi untuk menghasilkan ID unik secara otomatis, contoh: gunakan +new Date()
 function generateId() {
   return Date.now() + Math.floor(Math.random() * 1000);
+}
+
+function formatRupiah(number) {
+  return new Intl.NumberFormat("id-ID").format(number);
 }
 
 /**
@@ -38,33 +43,42 @@ function renderTransactions(filterData = transactions) {
   for (const transaction of filterData) {
     const card = document.createElement("div");
     card.dataset.testid = "transactionItem";
+    card.className = "tracker-transaction-item";
 
     const title = document.createElement("h3");
     title.dataset.testid = "transactionItemTitle";
     title.textContent = transaction.title;
-
-    card.appendChild(title);
+    title.className = "tracker-transaction-item__title";
 
     const amount = document.createElement("h3");
     amount.dataset.testid = "transactionItemAmount";
-    amount.textContent = `Rp ${transaction.amount}`;
-
-    card.appendChild(amount);
+    amount.className =
+      transaction.type === "income"
+        ? "tracker-transaction-item__amount tracker-transaction-item__amount--income"
+        : "tracker-transaction-item__amount tracker-transaction-item__amount--expense";
+    amount.textContent = `Rp ${formatRupiah(transaction.amount)}`;
 
     const date = document.createElement("h3");
     date.dataset.testid = "transactionItemDate";
+    date.className = "tracker-transaction-item__date";
     date.textContent = transaction.date;
-
-    card.appendChild(date);
 
     const type = document.createElement("h3");
     type.dataset.testid = "transactionItemType";
+    type.style.display = "none";
+
     type.textContent =
       transaction.type === "income" ? "Pemasukan" : "Pengeluaran";
-
     card.appendChild(type);
 
+    const detail = document.createElement("div");
+    detail.className = "tracker-transaction-item__detail";
+    detail.appendChild(title);
+    detail.appendChild(date);
+
     const editTypeButton = document.createElement("button");
+    editTypeButton.className =
+      "tracker-transaction-item__btn tracker-transaction-item__btn--toggle";
     editTypeButton.dataset.testid = "transactionItemEditTypeButton";
     editTypeButton.textContent =
       transaction.type === "income"
@@ -82,9 +96,9 @@ function renderTransactions(filterData = transactions) {
       document.dispatchEvent(new Event("transaction:updated"));
     });
 
-    card.appendChild(editTypeButton);
-
     const editButton = document.createElement("button");
+    editButton.className =
+      "tracker-transaction-item__btn tracker-transaction-item__btn--edit";
     editButton.textContent = "Edit";
     editButton.addEventListener("click", () => {
       document.getElementById("transactionFormTitleInput").value =
@@ -99,17 +113,31 @@ function renderTransactions(filterData = transactions) {
       editId = transaction.id;
     });
 
-    card.appendChild(editButton);
-
     const deleteButton = document.createElement("button");
     deleteButton.dataset.testid = "transactionItemDeleteButton";
+    deleteButton.className =
+      "tracker-transaction-item__btn tracker-transaction-item__btn--delete";
     deleteButton.textContent = "Hapus";
 
     deleteButton.addEventListener("click", () => {
       deleteTransaction(transaction.id);
     });
 
-    card.appendChild(deleteButton);
+    const actions = document.createElement("div");
+    actions.className = "tracker-transaction-item__actions";
+
+    actions.appendChild(editTypeButton);
+    actions.appendChild(editButton);
+    actions.appendChild(deleteButton);
+
+    const right = document.createElement("div");
+    right.className = "tracker-transaction-item__right";
+
+    right.appendChild(amount);
+    right.appendChild(actions);
+
+    card.appendChild(detail);
+    card.appendChild(right);
 
     if (transaction.type === "income") {
       incomeList.appendChild(card);
@@ -174,6 +202,7 @@ transactionForm.addEventListener("submit", (e) => {
   }
 
   document.dispatchEvent(new Event("transaction:updated"));
+  transactionForm.reset();
 });
 
 /**
@@ -207,9 +236,9 @@ function updateDashboard() {
 
   const balance = totalIncome - totalExpense;
 
-  balanceElement.textContent = `Rp ${balance}`;
-  incomeElement.textContent = `Rp ${totalIncome}`;
-  expenseElement.textContent = `Rp ${totalExpense}`;
+  balanceElement.textContent = `Rp ${formatRupiah(balance)}`;
+  incomeElement.textContent = `Rp ${formatRupiah(totalIncome)}`;
+  expenseElement.textContent = `Rp ${formatRupiah(totalExpense)}`;
 }
 
 /**
@@ -256,7 +285,7 @@ function deleteTransaction(id) {
 
 document.addEventListener("transaction:updated", () => {
   saveToLocalStorage();
-  renderTransactions();
+  applyFilter();
   updateDashboard();
 });
 
@@ -279,16 +308,20 @@ document.addEventListener("transaction:updated", () => {
  *  - Tampilkan hanya transaksi yang judulnya mengandung kata kunci tersebut
  */
 const searchInput = document.getElementById("searchTransactionFormTitleInput");
-
 searchInput.addEventListener("input", (e) => {
-  const keyword = e.target.value.toLowerCase();
-
-  const filtered = transactions.filter((t) =>
-    t.title.toLowerCase().includes(keyword),
-  );
-
-  renderTransactions(filtered);
+  currentKeyword = e.target.value.toLowerCase();
+  applyFilter();
 });
+
+function applyFilter() {
+  const keyword = currentKeyword.trim().toLowerCase();
+
+  const data = keyword
+    ? transactions.filter((t) => t.title.toLowerCase().includes(keyword))
+    : transactions;
+
+  renderTransactions(data);
+}
 
 /**
  * TODO [Advanced]:
@@ -297,5 +330,5 @@ searchInput.addEventListener("input", (e) => {
  */
 
 loadFromLocalStorage();
-renderTransactions();
+applyFilter();
 updateDashboard();
