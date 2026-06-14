@@ -7,10 +7,11 @@
 
 // TODO [Basic] Buat variabel array untuk menyimpan semua data transaksi, contoh: let transactions = []
 let transactions = [];
+let editId = null;
 
 // TODO [Basic] Buat fungsi untuk menghasilkan ID unik secara otomatis, contoh: gunakan +new Date()
 function generateId() {
-  return Date.now();
+  return Date.now() + Math.floor(Math.random() * 1000);
 }
 
 /**
@@ -21,7 +22,6 @@ function generateId() {
 // TODO [Basic] Ambil elemen kontainer incomeList dan expenseList dari DOM
 const incomeList = document.getElementById("incomeList");
 const expenseList = document.getElementById("expenseList");
-console.log(incomeList, expenseList);
 
 /**
  * TODO [Basic]:
@@ -31,11 +31,11 @@ console.log(incomeList, expenseList);
  *  - Pastikan setiap elemen memiliki atribut data-testid yang sesuai (lihat panduan di rubrik)
  *  - Masukkan kartu ke kontainer yang tepat: income → incomeList, expense → expenseList
  */
-function renderTransactions() {
+function renderTransactions(filterData = transactions) {
   incomeList.innerHTML = "";
   expenseList.innerHTML = "";
 
-  for (const transaction of transactions) {
+  for (const transaction of filterData) {
     const card = document.createElement("div");
     card.dataset.testid = "transactionItem";
 
@@ -66,19 +66,50 @@ function renderTransactions() {
 
     const editTypeButton = document.createElement("button");
     editTypeButton.dataset.testid = "transactionItemEditTypeButton";
-    editTypeButton.textContent = "Edit Type";
+    editTypeButton.textContent =
+      transaction.type === "income"
+        ? "Ubah ke Pengeluaran"
+        : "Ubah ke Pemasukan";
+
+    editTypeButton.addEventListener("click", () => {
+      const index = transactions.findIndex((t) => t.id === transaction.id);
+
+      if (index === -1) return;
+
+      transactions[index].type =
+        transactions[index].type === "income" ? "expense" : "income";
+
+      document.dispatchEvent(new Event("transaction:updated"));
+    });
 
     card.appendChild(editTypeButton);
 
+    const editButton = document.createElement("button");
+    editButton.textContent = "Edit";
+    editButton.addEventListener("click", () => {
+      document.getElementById("transactionFormTitleInput").value =
+        transaction.title;
+      document.getElementById("transactionFormAmountInput").value =
+        transaction.amount;
+      document.getElementById("transactionFormDateInput").value =
+        transaction.date;
+      document.getElementById("transactionFormTypeSelect").value =
+        transaction.type;
+
+      editId = transaction.id;
+    });
+
+    card.appendChild(editButton);
+
     const deleteButton = document.createElement("button");
     deleteButton.dataset.testid = "transactionItemDeleteButton";
-    deleteButton.textContent = "Delete";
-
-    card.appendChild(deleteButton);
+    deleteButton.textContent = "Hapus";
 
     deleteButton.addEventListener("click", () => {
       deleteTransaction(transaction.id);
     });
+
+    card.appendChild(deleteButton);
 
     if (transaction.type === "income") {
       incomeList.appendChild(card);
@@ -95,7 +126,9 @@ transactionForm.addEventListener("submit", (e) => {
 
   // TODO [Basic] Di dalam handler submit, ambil nilai input lalu tambahkan sebagai objek transaksi baru ke array
   const title = document.getElementById("transactionFormTitleInput").value;
-  const amount = document.getElementById("transactionFormAmountInput").value;
+  const amount = Number(
+    document.getElementById("transactionFormAmountInput").value,
+  );
   const date = document.getElementById("transactionFormDateInput").value;
   const type = document.getElementById("transactionFormTypeSelect").value;
 
@@ -105,28 +138,42 @@ transactionForm.addEventListener("submit", (e) => {
    *  - Tampilkan alert() dan hentikan proses jika judul kosong
    *  - Tampilkan alert() dan hentikan proses jika nominal kurang dari 1
    */
+
   if (title.trim() === "") {
     alert("Judul tidak boleh kosong");
     return;
   }
 
-  if (Number(amount) < 1) {
+  if (amount < 1) {
     alert("Nominal harus lebih dari 0");
     return;
   }
 
-  const newTransaction = {
-    id: generateId(),
-    title,
-    amount: Number(amount),
-    date,
-    type,
-  };
+  if (editId) {
+    const index = transactions.findIndex((t) => t.id === editId);
 
-  transactions.push(newTransaction);
-  saveToLocalStorage();
-  renderTransactions();
-  updateDashboard();
+    if (index === -1) return;
+
+    transactions[index] = {
+      id: editId,
+      title,
+      amount,
+      date,
+      type,
+    };
+
+    editId = null;
+  } else {
+    transactions.push({
+      id: generateId(),
+      title,
+      amount,
+      date,
+      type,
+    });
+  }
+
+  document.dispatchEvent(new Event("transaction:updated"));
 });
 
 /**
@@ -190,9 +237,7 @@ function loadFromLocalStorage() {
 function deleteTransaction(id) {
   transactions = transactions.filter((t) => t.id !== id);
 
-  saveToLocalStorage();
-  renderTransactions();
-  updateDashboard();
+  document.dispatchEvent(new Event("transaction:updated"));
 }
 
 /**
@@ -208,6 +253,12 @@ function deleteTransaction(id) {
  *  - Kirim sinyal dengan document.dispatchEvent(new Event('transaction:updated')) setiap kali data berubah
  *  - Pasang satu listener untuk event tersebut yang memanggil fungsi render dan update dasbor
  */
+
+document.addEventListener("transaction:updated", () => {
+  saveToLocalStorage();
+  renderTransactions();
+  updateDashboard();
+});
 
 /**
  * ========================================================
@@ -227,12 +278,24 @@ function deleteTransaction(id) {
  *  - Filter array transaksi berdasarkan kecocokan kata kunci dengan judul transaksi
  *  - Tampilkan hanya transaksi yang judulnya mengandung kata kunci tersebut
  */
+const searchInput = document.getElementById("searchTransactionFormTitleInput");
+
+searchInput.addEventListener("input", (e) => {
+  const keyword = e.target.value.toLowerCase();
+
+  const filtered = transactions.filter((t) =>
+    t.title.toLowerCase().includes(keyword),
+  );
+
+  renderTransactions(filtered);
+});
 
 /**
  * TODO [Advanced]:
  * Pastikan fitur pencarian berjalan dengan baik di semua kondisi:
  *  - Saat kolom pencarian dikosongkan, tampilkan kembali seluruh daftar transaksi
  */
+
 loadFromLocalStorage();
 renderTransactions();
 updateDashboard();
