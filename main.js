@@ -120,7 +120,15 @@ function renderTransactions(filterData = transactions) {
     deleteButton.textContent = "Hapus";
 
     deleteButton.addEventListener("click", () => {
-      deleteTransaction(transaction.id);
+      const isConfirmed = confirm("Yakin mau hapus transaksi ini?");
+
+      if (!isConfirmed) return;
+
+      transactions = transactions.filter((t) => t.id !== transaction.id);
+
+      localStorage.setItem("transactions", JSON.stringify(transactions));
+
+      renderTransactions();
     });
 
     const actions = document.createElement("div");
